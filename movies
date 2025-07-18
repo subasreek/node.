@@ -1,0 +1,52 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+const moviesFile = path.join(__dirname, 'movies_metadata.json');
+let movies = [];
+
+// Load movies on server start
+try {
+  const data = fs.readFileSync(moviesFile, 'utf-8');
+  movies = JSON.parse(data);
+} catch (err) {
+  console.error('Failed to load movies data:', err);
+}
+
+// API: Get all movies
+app.get('/api/movies', (req, res) => {
+  // Return only needed fields for list page for performance
+  const list = movies.map(({ id, title, tagline, vote_average }) => ({
+    id,
+    title,
+    tagline,
+    vote_average,
+  }));
+  res.json(list);
+});
+
+// API: Get movie by ID
+app.get('/api/movies/:id', (req, res) => {
+  const id = req.params.id;
+  const movie = movies.find(m => m.id === id || m.id === Number(id));
+  if (!movie) {
+    return res.status(404).json({ error: 'Movie not found' });
+  }
+  res.json(movie);
+});
+
+// Serve React build in production
+if (process.env.NODE_ENV === 'production') {
+  const buildPath = path.join(__dirname, '..', 'build');
+  app.use(express.static(buildPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
+
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
